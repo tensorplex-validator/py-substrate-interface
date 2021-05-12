@@ -36,6 +36,8 @@ from scalecodec.type_registry import load_type_registry_preset
 from scalecodec.updater import update_type_registries
 
 from .key import extract_derive_path
+from .plugins import EventFilterPlugin
+from .plugins.substrate import SubstrateEventFilterPlugin
 from .utils.caching import block_dependent_lru_cache
 from .utils.hasher import blake2_256, two_x64_concat, xxh128, blake2_128, blake2_128_concat, identity
 from .exceptions import SubstrateRequestException, ConfigurationError, StorageFunctionNotFound, BlockNotFound, \
@@ -379,8 +381,10 @@ class Keypair:
 
 class SubstrateInterface:
 
-    def __init__(self, url=None, websocket=None, ss58_format=None, type_registry=None, type_registry_preset=None,
-                 cache_region=None, address_type=None, runtime_config=None, use_remote_preset=False):
+    def __init__(self, url: str = None, websocket=None, ss58_format: int = None, type_registry: dict = None,
+                 type_registry_preset: str = None, cache_region=None, address_type=None,
+                 runtime_config: RuntimeConfigurationObject = None, use_remote_preset: bool = False,
+                 plugins: list = None):
         """
         A specialized class in interfacing with a Substrate node.
 
@@ -392,6 +396,7 @@ class SubstrateInterface:
         type_registry_preset: The name of the predefined type registry shipped with the SCALE-codec, e.g. kusama
         cache_region: a Dogpile cache region as a central store for the metadata cache
         use_remote_preset: When True preset is downloaded from Github master, otherwise use files from local installed scalecodec package
+        plugins: list of plugins to use, for example to use in filter_events
         """
 
         if (not url and not websocket) or (url and websocket):
@@ -420,6 +425,12 @@ class SubstrateInterface:
         self.request_id = 1
         self.url = url
         self.websocket = None
+
+        if not plugins:
+            # Default plugins
+            plugins = (SubstrateEventFilterPlugin(), )
+
+        self.plugins = plugins
 
         self.__rpc_message_queue = []
 
@@ -1547,6 +1558,16 @@ class SubstrateInterface:
         if storage_obj:
             events += storage_obj.elements
         return events
+
+    def filter_events(self, **kwargs):
+        for plugin in self.plugins:
+            if isinstance(plugin, EventFilterPlugin):
+                plugin.init_plugin(self)
+                results = plugin.execute(**kwargs)
+                plugin.close_plugin()
+                return results
+
+        raise NotImplementedError("No plugin found to filter events")
 
     def get_runtime_events(self, block_hash=None):
 
