@@ -15,12 +15,6 @@
 # limitations under the License.
 
 class Plugin:
-    pass
-
-
-class EventFilterPlugin(Plugin):
-
-    supported_filters = ()
 
     def __init__(self):
         self.substrate = None
@@ -31,12 +25,8 @@ class EventFilterPlugin(Plugin):
     def close_plugin(self):
         pass
 
-    def execute(self, **kwargs):
-        for filter_name in kwargs.keys():
-            if filter_name not in self.supported_filters:
-                raise ValueError(f'Filter "{filter_name}" not supported by this plugin')
+    def filter_events(self, **kwargs):
+        raise NotImplementedError()
 
-        return self.apply_filters(**kwargs)
-
-    def apply_filters(self, **kwargs):
+    def search_block_id(self, **kwargs):
         raise NotImplementedError()

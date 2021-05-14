@@ -25,10 +25,11 @@ import re
 
 import requests
 from typing import Optional
+from datetime import datetime, timedelta
 
 from websocket import create_connection, WebSocketConnectionClosedException
 
-from scalecodec import ScaleBytes, GenericCall, GenericAccountId
+from scalecodec import ScaleBytes, GenericCall
 from scalecodec.base import ScaleDecoder, RuntimeConfigurationObject, ScaleType
 from scalecodec.block import ExtrinsicsDecoder, EventsDecoder, LogDigest, Extrinsic
 from scalecodec.metadata import MetadataDecoder
@@ -36,8 +37,8 @@ from scalecodec.type_registry import load_type_registry_preset
 from scalecodec.updater import update_type_registries
 
 from .key import extract_derive_path
-from .plugins import EventFilterPlugin
-from .plugins.substrate import SubstrateEventFilterPlugin
+from .plugins import Plugin
+from .plugins.substrate import SubstrateNodePlugin
 from .utils.caching import block_dependent_lru_cache
 from .utils.hasher import blake2_256, two_x64_concat, xxh128, blake2_128, blake2_128_concat, identity
 from .exceptions import SubstrateRequestException, ConfigurationError, StorageFunctionNotFound, BlockNotFound, \
@@ -428,7 +429,7 @@ class SubstrateInterface:
 
         if not plugins:
             # Default plugins
-            plugins = (SubstrateEventFilterPlugin(), )
+            plugins = (SubstrateNodePlugin(), )
 
         self.plugins = plugins
 
@@ -1559,15 +1560,26 @@ class SubstrateInterface:
             events += storage_obj.elements
         return events
 
-    def filter_events(self, **kwargs):
+    def __execute_plugin_function(self, name, **kwargs):
         for plugin in self.plugins:
-            if isinstance(plugin, EventFilterPlugin):
-                plugin.init_plugin(self)
-                results = plugin.execute(**kwargs)
-                plugin.close_plugin()
-                return results
+            if isinstance(plugin, Plugin):
+                if hasattr(plugin, name):
 
-        raise NotImplementedError("No plugin found to filter events")
+                    plugin.init_plugin(self)
+                    try:
+                        results = getattr(plugin, name)(**kwargs)
+                        plugin.close_plugin()
+                        return results
+                    except NotImplementedError:
+                        pass
+
+        raise NotImplementedError(f"No plugin found that implements '{name}'")
+
+    def filter_events(self, **kwargs) -> list:
+        return self.__execute_plugin_function('filter_events', **kwargs)
+
+    def search_block_id(self, block_datetime: datetime, accuracy: timedelta) -> int:
+        return self.__execute_plugin_function('search_block_id', block_datetime=block_datetime, accuracy=accuracy)
 
     def get_runtime_events(self, block_hash=None):
 

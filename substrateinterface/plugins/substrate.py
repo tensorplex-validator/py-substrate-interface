@@ -13,11 +13,12 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+from datetime import datetime, timedelta
 
-from substrateinterface.plugins import EventFilterPlugin
+from substrateinterface.plugins import Plugin
 
 
-class SubstrateEventFilterPlugin(EventFilterPlugin):
+class SubstrateNodePlugin(Plugin):
 
     supported_filters = ('block_start', 'block_end', 'account_id', 'pallet_name', 'event_name')
 
@@ -25,7 +26,7 @@ class SubstrateEventFilterPlugin(EventFilterPlugin):
         self.max_block_range = max_block_range
         super().__init__()
 
-    def apply_filters(self, block_start: int = None, block_end: int = None, pallet_name: str = None,
+    def filter_events(self, block_start: int = None, block_end: int = None, pallet_name: str = None,
                       event_name: str = None, account_id: str = None):
 
         if block_end is None:
@@ -61,4 +62,7 @@ class SubstrateEventFilterPlugin(EventFilterPlugin):
                 result.append(event)
 
         return result
+
+    def search_block_id(self, block_datetime: datetime, accuracy: timedelta):
+        raise NotImplementedError()
 

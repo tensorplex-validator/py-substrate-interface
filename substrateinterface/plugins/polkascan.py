@@ -16,10 +16,10 @@
 import requests
 
 from scalecodec import ScaleDecoder
-from substrateinterface.plugins import EventFilterPlugin
+from substrateinterface.plugins import Plugin
 
 
-class PolkascanEventFilterPlugin(EventFilterPlugin):
+class PolkascanPlugin(Plugin):
 
     supported_filters = ('block_start', 'block_end', 'account_id', 'pallet_name', 'event_name')
 
@@ -27,7 +27,7 @@ class PolkascanEventFilterPlugin(EventFilterPlugin):
         self.max_requests = max_requests
         super().__init__()
 
-    def apply_filters(self, block_start: int = None, block_end: int = None, pallet_name: str = None,
+    def filter_events(self, block_start: int = None, block_end: int = None, pallet_name: str = None,
                       event_name: str = None, account_id: str = None):
 
         # Requirements check
