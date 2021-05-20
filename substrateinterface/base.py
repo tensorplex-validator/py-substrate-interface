@@ -1568,10 +1568,11 @@ class SubstrateInterface:
                     plugin.init_plugin(self)
                     try:
                         results = getattr(plugin, name)(**kwargs)
-                        plugin.close_plugin()
                         return results
                     except NotImplementedError:
                         pass
+                    finally:
+                        plugin.close_plugin()
 
         raise NotImplementedError(f"No plugin found that implements '{name}'")
 
