@@ -931,7 +931,7 @@ class SubstrateInterface:
         -------
 
         """
-        response = self.rpc_request("chain_getRuntimeVersion", [block_hash])
+        response = self.rpc_request("state_getRuntimeVersion", [block_hash])
 
         if 'error' in response:
             raise SubstrateRequestException(response['error']['message'])
@@ -1030,21 +1030,22 @@ class SubstrateInterface:
 
         """
 
-        if block_id and block_hash:
+        if block_id is not None and block_hash is not None:
             raise ValueError('Cannot provide block_hash and block_id at the same time')
 
         # Check if runtime state already set to current block
-        if (block_hash and block_hash == self.block_hash) or (block_id and block_id == self.block_id):
+        if (block_hash is not None and block_hash == self.block_hash) or \
+                (block_id is not None and block_id == self.block_id):
             return
 
         if block_id is not None:
-            block_hash = self.get_block_hash(block_id)
+            self.block_id = block_id
+            self.block_hash = self.get_block_hash(block_id)
 
-        if not block_hash:
-            block_hash = self.get_chain_head()
-
-        self.block_hash = block_hash
-        self.block_id = block_id
+        if block_hash is not None:
+            self.block_hash = block_hash
+        else:
+            self.block_hash = self.get_chain_head()
 
         # In fact calls and storage functions are decoded against runtime of previous block, therefor retrieve
         # metadata and apply type registry of runtime of parent block
@@ -1053,24 +1054,37 @@ class SubstrateInterface:
         if block_header['result'] is None:
             raise BlockNotFound(f'Block not found for "{self.block_hash}"')
 
-        parent_block_hash = block_header['result']['parentHash']
+        self.block_id = int(block_header['result']['number'], 16)
 
-        if parent_block_hash == '0x0000000000000000000000000000000000000000000000000000000000000000':
-            runtime_block_hash = self.block_hash
-        else:
-            runtime_block_hash = parent_block_hash
+        # Check if runtime ID is present in type registry runtime_upgrades
+        runtime_block_hash = None
+        runtime_id = self.runtime_config.get_runtime_id_from_upgrades(max(self.block_id - 1, 0))
 
-        runtime_info = self.get_block_runtime_version(block_hash=runtime_block_hash)
+        if runtime_id is None:
+            # Retrieve runtime id from chain
+            parent_block_hash = block_header['result']['parentHash']
 
-        if runtime_info is None:
-            raise SubstrateRequestException(f"No runtime information for block '{block_hash}'")
+            if parent_block_hash == '0x0000000000000000000000000000000000000000000000000000000000000000':
+                runtime_block_hash = self.block_hash
+            else:
+                runtime_block_hash = parent_block_hash
+
+            runtime_info = self.get_block_runtime_version(block_hash=runtime_block_hash)
+
+            if runtime_info is None:
+                raise SubstrateRequestException(f"No runtime information for block '{block_hash}'")
+
+            runtime_id = runtime_info.get("specVersion")
+            self.transaction_version = runtime_info.get("transactionVersion")
+
+            # Put runtime_id in upgrades
+            self.runtime_config.set_runtime_upgrades_head(max(self.block_id - 1, 0))
 
         # Check if runtime state already set to current block
-        if runtime_info.get("specVersion") == self.runtime_version:
+        if self.runtime_version == runtime_id:
             return
 
-        self.runtime_version = runtime_info.get("specVersion")
-        self.transaction_version = runtime_info.get("transactionVersion")
+        self.runtime_version = runtime_id
 
         # Set active runtime version
         self.runtime_config.set_active_spec_version_id(self.runtime_version)
@@ -1087,6 +1101,10 @@ class SubstrateInterface:
             self.debug_message('Retrieved metadata for {} from memory'.format(self.runtime_version))
             self.metadata_decoder = self.metadata_cache[self.runtime_version]
         else:
+
+            if runtime_block_hash is None:
+                runtime_block_hash = self.get_block_hash(max(0, self.block_id - 1))
+
             self.metadata_decoder = self.get_block_metadata(block_hash=runtime_block_hash, decode=True)
             self.debug_message('Retrieved metadata for {} from Substrate node'.format(self.runtime_version))
 

@@ -38,7 +38,7 @@ class TestHelperFunctions(unittest.TestCase):
         cls.substrate.get_block_metadata = MagicMock(return_value=metadata_decoder)
 
         def mocked_request(method, params):
-            if method == 'chain_getRuntimeVersion':
+            if method in ['chain_getRuntimeVersion', 'state_getRuntimeVersion']:
                 return {
                     "jsonrpc": "2.0",
                     "result": {"specVersion": 2023},
@@ -59,7 +59,7 @@ class TestHelperFunctions(unittest.TestCase):
                     },
                     "id": 1
                 }
-            elif method == 'chain_getHead':
+            elif method in ['chain_getHead', 'chain_getBlockHash']:
                 return {
                     "jsonrpc": "2.0",
                     "result": "0xe1781813275653a970b4260298b3858b36d38e072256dad674f7c786a0cae236",
@@ -98,7 +98,7 @@ class TestHelperFunctions(unittest.TestCase):
             'decoder_class': 'Bytes',
             'is_primitive_core': False,
             'is_primitive_runtime': True,
-            'spec_version': 2023,
+            'spec_version': 2026,
             'type_string': 'Bytes'}
         )
 
@@ -106,7 +106,7 @@ class TestHelperFunctions(unittest.TestCase):
         for module in self.substrate.get_metadata_modules():
             self.assertIn('module_id', module)
             self.assertIn('name', module)
-            self.assertEqual(module['spec_version'], 2023)
+            self.assertEqual(module['spec_version'], 2026)
 
     def test_get_metadata_call_function(self):
         call_function = self.substrate.get_metadata_call_function("Balances", "transfer")

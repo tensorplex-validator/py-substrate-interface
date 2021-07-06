@@ -54,7 +54,7 @@ class BlockTestCase(unittest.TestCase):
                     "result": "0xec828914eca09331dad704404479e2899a971a9b5948345dc40abca4ac818f93",
                     "id": 1
                 }
-            elif method == 'chain_getRuntimeVersion':
+            elif method in ['chain_getRuntimeVersion', 'state_getRuntimeVersion']:
                 return {
                     "jsonrpc": "2.0",
                     "result": {"specVersion": 100, "transactionVersion": 1},
