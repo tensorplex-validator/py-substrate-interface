@@ -16,5 +16,6 @@
 
 from .base import *
 from .contracts import *
+from .keypair import *
 
-__all__ = (base.__all__ + contracts.__all__)
+__all__ = (base.__all__ + contracts.__all__ + keypair.__all__)
