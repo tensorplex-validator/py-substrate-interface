@@ -69,7 +69,7 @@ class SubstrateInterface:
 
     def __init__(self, url=None, websocket=None, ss58_format=None, type_registry=None, type_registry_preset=None,
                  cache_region=None, runtime_config=None, use_remote_preset=False, ws_options=None,
-                 auto_discover=True, auto_reconnect=True, config=None):
+                 auto_discover=True, auto_reconnect=True, config=None, legacy_mode=False):
         """
         A specialized class in interfacing with a Substrate node.
 
@@ -97,6 +97,8 @@ class SubstrateInterface:
         self.__token_decimals = None
         self.__token_symbol = None
         self.__ss58_format = None
+
+        self.legacy_mode = legacy_mode
 
         if not runtime_config:
             runtime_config = RuntimeConfigurationObject()
@@ -1859,13 +1861,14 @@ class SubstrateInterface:
             signature=signature
         )
 
-        if self.supports_rpc_method('state_call'):
-            extrinsic_len = self.runtime_config.create_scale_object('u32')
-            extrinsic_len.encode(len(extrinsic.data))
+        if not self.legacy_mode:
+            if self.supports_rpc_method('state_call'):
+                extrinsic_len = self.runtime_config.create_scale_object('u32')
+                extrinsic_len.encode(len(extrinsic.data))
 
-            result = self.runtime_call("TransactionPaymentApi", "query_info", [extrinsic, extrinsic_len])
+                result = self.runtime_call("TransactionPaymentApi", "query_info", [extrinsic, extrinsic_len])
 
-            return result.value
+                return result.value
         else:
             # Backwards compatibility; deprecated RPC method
             payment_info = self.rpc_request('payment_queryInfo', [str(extrinsic.data)])
